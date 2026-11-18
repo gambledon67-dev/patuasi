@@ -1,0 +1,240 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  width: 100%;
+  min-height: 100lvh;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "SF Pro Display", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: #0a4174;
+  background-image: linear-gradient(
+    180deg,
+    #0a4174 0%,
+    #073766 28%,
+    #052d55 55%,
+    #032243 80%,
+    #021934 100%
+  );
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+body {
+  width: 100%;
+  min-height: 100lvh;
+  overflow: hidden;
+  background: transparent;
+  color: #ffffff;
+}
+
+/* Base container (Splash Screen sits at layer 1) */
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+
+  transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.35s ease;
+}
+
+/* Subtle scale-back when a sheet slides over the splash screen */
+.splash-screen.under-sheet {
+  transform: scale(0.94);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash-logo {
+  width: 28%;
+  max-width: 140px;
+  min-width: 95px;
+  height: auto;
+  object-fit: contain;
+}
+
+/* Sheet screens (PIN screen & future screens) */
+.sheet-view {
+  z-index: 10;
+  transform: translateY(100%);
+  background-color: #0a4174;
+  background-image: linear-gradient(
+    180deg,
+    #0a4174 0%,
+    #073766 28%,
+    #052d55 55%,
+    #032243 80%,
+    #021934 100%
+  );
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.35);
+  will-change: transform;
+  transition: transform 0.44s cubic-bezier(0.32, 0.72, 0, 1),
+    border-radius 0.44s ease;
+}
+
+.sheet-view.active {
+  transform: translateY(0);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* PIN screen layout */
+.splash-screen.pin-screen {
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  padding-top: calc(env(safe-area-inset-top) + 16px);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 22px);
+}
+
+.splash-icon {
+  width: 64px;
+  height: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.pin-text {
+  margin-top: 26px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: #ffffff;
+  text-align: center;
+}
+
+/* 6-dot PIN indicator */
+.pin-indicator {
+  margin-top: 34px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+
+.pin-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+
+.pin-dot.filled {
+  transform: scale(1.65);
+}
+
+/* 3x4 Circular Keypad */
+.pin-keypad {
+  margin-top: 44px;
+  display: grid;
+  grid-template-columns: repeat(3, clamp(68px, 19.5vw, 80px));
+  grid-template-rows: repeat(4, clamp(68px, 19.5vw, 80px));
+  column-gap: clamp(18px, 5.5vw, 24px);
+  row-gap: clamp(14px, 2vh, 18px);
+  justify-content: center;
+  align-items: center;
+}
+
+.pin-key {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-size: 31px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: background-color 0.1s ease, transform 0.08s ease;
+}
+
+.pin-key:active,
+.pin-key.pressed {
+  background-color: rgba(255, 255, 255, 0.28);
+  transform: scale(0.95);
+}
+
+.pin-key-empty {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.backspace-icon {
+  width: 26px;
+  height: 20px;
+  display: block;
+}
+
+/* Bottom Links */
+.pin-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.pin-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.pin-link span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+}
+
+.pin-link:active {
+  opacity: 0.7;
+}
+
+.link-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#pin-view.sheet-open {
+  display: flex !important;
+  transform: translateY(0) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}

@@ -1,0 +1,2449 @@
+<!DOCTYPE html>
+<html lang="et">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+
+    <!-- Home Screen & Bookmark Icons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="images/app_icon.png" />
+    <link rel="icon" type="image/png" href="images/app_icon.png" />
+
+    <!-- iOS Full-Screen Web App Settings -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="Eesti äpp" />
+
+    <title>Eesti äpp</title>
+    <link rel="stylesheet" href="style.css?v=20" />
+
+    <style>
+      /* View visibility & transitions */
+      .hidden {
+        display: none !important;
+      }
+
+      #pin-view.sheet-open {
+        display: flex !important;
+        transform: translateY(0) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+
+      /* PIN loading overlay during short post-PIN delay */
+      .pin-loading-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(5, 45, 85, 0.72);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+      }
+
+      .pin-spinner {
+        width: 38px;
+        height: 38px;
+        border: 3px solid rgba(255, 255, 255, 0.25);
+        border-top-color: #ffffff;
+        border-radius: 50%;
+        animation: eestiSpin 0.75s linear infinite;
+      }
+
+      @keyframes eestiSpin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ============================
+         SCREEN 3: TÖÖLAUD (DASHBOARD)
+         ============================ */
+      .dashboard-screen {
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(
+          180deg,
+          #e9edf4 0%,
+          #ece7ee 24%,
+          #e8ecf3 48%,
+          #e5eeec 72%,
+          #e4ebf4 88%,
+          #e7ebf2 100%
+        );
+        color: #1f242d;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+        transition: transform 0.36s cubic-bezier(0.28, 0.84, 0.42, 1);
+      }
+
+      .dashboard-screen.pushed-left {
+        transform: translateX(-24%);
+      }
+
+      /* Crisp White Top Bar */
+      .dashboard-top-bar {
+        width: 100%;
+        height: max(env(safe-area-inset-top, 0px), 18px);
+        background-color: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(206, 218, 236, 0.55);
+        flex-shrink: 0;
+        z-index: 25;
+      }
+
+      /* Scrollable middle section */
+      .dashboard-scroll {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        -webkit-overflow-scrolling: touch;
+        padding: 13px 16px calc(env(safe-area-inset-bottom, 16px) + 152px);
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      /* Identical Fixed-Size Search Bar across Töölaud & Dokumendi andmed */
+      .search-bar {
+        width: 100%;
+        height: 40px;
+        min-height: 40px;
+        max-height: 40px;
+        flex-shrink: 0;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 13px;
+        background: rgba(255, 255, 255, 0.46);
+        border: 1px solid #c3cbd8;
+        border-radius: 5px;
+      }
+
+      .search-bar input {
+        width: 100%;
+        border: none;
+        background: transparent;
+        outline: none;
+        font-size: 15px;
+        font-weight: 400;
+        color: #1f242d;
+      }
+
+      .search-bar input::placeholder {
+        color: #939ba8;
+        font-weight: 400;
+      }
+
+      .search-icon {
+        width: 16px;
+        height: 16px;
+        color: #8b93a1;
+        flex-shrink: 0;
+      }
+
+      /* Continuous-corner (squircle) cards */
+      .dash-card {
+        position: relative;
+        flex-shrink: 0;
+        background: transparent;
+        border-radius: 28px;
+        padding: 20px 18px;
+        isolation: isolate;
+      }
+
+      .squircle-frosted-fill {
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.78);
+        backdrop-filter: blur(18px) saturate(135%);
+        -webkit-backdrop-filter: blur(18px) saturate(135%);
+        pointer-events: none;
+        z-index: -2;
+      }
+
+      .squircle-bg-svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        pointer-events: none;
+        z-index: -1;
+        filter: drop-shadow(0 3px 10px rgba(130, 152, 188, 0.12));
+      }
+
+      /* Card 1: Name, Isikukood & Barcode */
+      .identity-card {
+        text-align: center;
+        padding: 22px 16px 18px;
+      }
+
+      .user-fullname {
+        margin: 0;
+        font-size: 20.5px;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+        color: #1e232c;
+        text-transform: uppercase;
+      }
+
+      .id-code-row {
+        margin-top: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        background: none;
+        border: none;
+        padding: 4px 8px;
+        cursor: pointer;
+        color: #4a5260;
+        font-size: 15px;
+        font-weight: 400;
+        letter-spacing: 0.4px;
+      }
+
+      .id-code-row:active {
+        opacity: 0.65;
+      }
+
+      .copy-icon {
+        width: 16px;
+        height: 16px;
+        color: #868e9c;
+        flex-shrink: 0;
+      }
+
+      .barcode-box {
+        position: relative;
+        margin-top: 14px;
+        border: 1px solid rgba(198, 212, 232, 0.85);
+        border-radius: 14px;
+        background: rgba(252, 253, 255, 0.84);
+        box-shadow: 0 2px 8px rgba(125, 160, 210, 0.06);
+        padding: 15px 44px 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .barcode-svg {
+        width: 100%;
+        max-width: 186px;
+        height: 28px;
+        display: block;
+      }
+
+      .barcode-number {
+        margin-top: 7px;
+        font-size: 13.5px;
+        font-weight: 400;
+        letter-spacing: 1.1px;
+        color: #4b5362;
+      }
+
+      .barcode-expand-btn {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 31px;
+        height: 31px;
+        border-radius: 50%;
+        border: 1px solid #c6d0df;
+        background: rgba(242, 245, 251, 0.9);
+        color: #183a6d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        cursor: pointer;
+      }
+
+      .barcode-expand-btn:active {
+        transform: scale(0.94);
+      }
+
+      /* Card 2: Dokumendi andmed */
+      .docs-card {
+        padding: 22px 20px;
+      }
+
+      .docs-title {
+        margin: 0 0 10px;
+        font-size: 21.5px;
+        font-weight: 400;
+        color: #1f242d;
+        letter-spacing: -0.2px;
+      }
+
+      .docs-desc {
+        margin: 0 0 20px;
+        font-size: 15px;
+        font-weight: 400;
+        line-height: 1.45;
+        color: #495160;
+      }
+
+      /* Uniform Fixed-Height Primary Cobalt Pill Buttons */
+      .primary-pill-btn {
+        flex-shrink: 0;
+        width: 100%;
+        height: 46px;
+        min-height: 46px;
+        max-height: 46px;
+        border-radius: 999px;
+        border: none;
+        background-color: #0054a6;
+        color: #ffffff;
+        font-size: 15px;
+        font-weight: 500;
+        letter-spacing: 0.1px;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        padding: 0 20px;
+        box-sizing: border-box;
+        cursor: pointer;
+        box-shadow: 0 2px 7px rgba(0, 84, 166, 0.18);
+      }
+
+      .primary-pill-btn:active {
+        background-color: #004387;
+        transform: scale(0.99);
+      }
+
+      .qr-btn-icon {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+      }
+
+      /* Card 3: Jätan oma arvamuse */
+      .feedback-card {
+        padding: 18px 14px 20px;
+        text-align: center;
+      }
+
+      .feedback-title {
+        margin: 0 0 16px;
+        font-size: 16px;
+        font-weight: 400;
+        color: #3c4352;
+      }
+
+      .faces-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 8px;
+      }
+
+      .face-btn {
+        background: none;
+        border: none;
+        padding: 0;
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .face-btn:active {
+        transform: scale(0.92);
+      }
+
+      .face-btn img {
+        width: 44px;
+        height: 44px;
+        display: block;
+        pointer-events: none;
+      }
+
+      /* ============================
+         BALANCED FROSTED GLASS BOTTOM NAVBAR
+         ============================ */
+      .bottom-navbar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: calc(94px + env(safe-area-inset-bottom, 0px));
+        padding: 0 6px calc(env(safe-area-inset-bottom, 0px) + 10px);
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        align-items: end;
+        z-index: 50;
+        pointer-events: none;
+        filter: drop-shadow(0 -2px 10px rgba(110, 145, 195, 0.15));
+      }
+
+      .navbar-glass-bg {
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.78);
+        backdrop-filter: blur(18px) saturate(145%);
+        -webkit-backdrop-filter: blur(18px) saturate(145%);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .navbar-rim-svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .nav-item,
+      .nav-center-wrap {
+        position: relative;
+        z-index: 2;
+        pointer-events: auto;
+      }
+
+      .nav-item {
+        background: none;
+        border: none;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+        cursor: pointer;
+        color: #6b7382;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .nav-icon-slot {
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #1d2432;
+      }
+
+      .nav-initials {
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        color: #1d2432;
+        line-height: 1;
+      }
+
+      .nav-label {
+        font-size: 11px;
+        font-weight: 400;
+        line-height: 1.1;
+        color: #6b7382;
+      }
+
+      .nav-center-wrap {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+      }
+
+      .nav-center-btn {
+        width: 74px;
+        height: 74px;
+        border-radius: 50%;
+        border: none;
+        background-color: #0054a6;
+        box-shadow: 0 2px 8px rgba(0, 62, 138, 0.22);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        padding: 6px 4px 8px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .nav-center-btn:active {
+        transform: scale(0.96);
+      }
+
+      .nav-center-emblem {
+        width: 28px;
+        height: 28px;
+        object-fit: contain;
+        display: block;
+      }
+
+      .nav-center-label {
+        font-size: 11.5px;
+        font-weight: 500;
+        color: #ffffff;
+        line-height: 1.1;
+      }
+
+      /* ============================
+         SCREEN 4: DOKUMENDI ANDMED
+         ============================ */
+      .documents-screen {
+        position: fixed;
+        inset: 0;
+        background: radial-gradient(
+            ellipse 85% 24% at 24% 25%,
+            rgba(239, 198, 208, 0.54) 0%,
+            rgba(239, 198, 208, 0) 75%
+          ),
+          radial-gradient(
+            ellipse 78% 22% at 78% 34%,
+            rgba(236, 202, 212, 0.42) 0%,
+            rgba(236, 202, 212, 0) 75%
+          ),
+          radial-gradient(
+            ellipse 88% 24% at 28% 63%,
+            rgba(196, 231, 222, 0.56) 0%,
+            rgba(196, 231, 222, 0) 76%
+          ),
+          radial-gradient(
+            ellipse 85% 24% at 74% 79%,
+            rgba(196, 219, 245, 0.56) 0%,
+            rgba(196, 219, 245, 0) 76%
+          ),
+          linear-gradient(
+            180deg,
+            #e8ecf3 0%,
+            #e8ecf3 13%,
+            #efe2e7 27%,
+            #e7ebf3 45%,
+            #dfece9 63%,
+            #dfe8f4 80%,
+            #e7ebf2 94%,
+            #e8ecf3 100%
+          );
+        color: #1f242d;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+        z-index: 80;
+        transform: translateX(100%);
+        transition: transform 0.36s cubic-bezier(0.28, 0.84, 0.42, 1);
+        box-shadow: -8px 0 24px rgba(15, 32, 62, 0.12);
+      }
+
+      .documents-screen.is-open {
+        transform: translateX(0);
+      }
+
+      .documents-screen .squircle-frosted-fill {
+        background: rgba(255, 255, 255, 0.62);
+        backdrop-filter: blur(20px) saturate(140%);
+        -webkit-backdrop-filter: blur(20px) saturate(140%);
+      }
+
+      .documents-screen .squircle-bg-svg {
+        filter: drop-shadow(0 3px 12px rgba(124, 144, 180, 0.12));
+      }
+
+      /* Top sticky search + back row with frosted blur bleed */
+      .docs-header-bar {
+        position: relative;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px 10px 6px;
+        background: linear-gradient(
+          180deg,
+          rgba(232, 236, 243, 0.84) 65%,
+          rgba(232, 236, 243, 0.46) 100%
+        );
+        backdrop-filter: blur(14px) saturate(135%);
+        -webkit-backdrop-filter: blur(14px) saturate(135%);
+        flex-shrink: 0;
+      }
+
+      .docs-header-bar .search-bar {
+        width: auto;
+        flex: 1;
+        min-width: 0;
+        background: rgba(255, 255, 255, 0.44);
+        border-color: #c2cad7;
+      }
+
+      .back-chevron-btn {
+        width: 34px;
+        height: 40px;
+        background: none;
+        border: none;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #2c3442;
+        cursor: pointer;
+        flex-shrink: 0;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .back-chevron-btn:active {
+        opacity: 0.55;
+      }
+
+      .docs-scroll {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        -webkit-overflow-scrolling: touch;
+        padding: 4px 16px calc(env(safe-area-inset-bottom, 16px) + 32px);
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .doc-item-card {
+        padding: 20px 18px 20px;
+      }
+
+      .doc-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .doc-card-title {
+        margin: 0;
+        font-size: 21px;
+        font-weight: 400;
+        color: #1d222b;
+        letter-spacing: -0.2px;
+      }
+
+      /* Muted Sage-Green Valid Badge */
+      .status-badge-valid {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 6px;
+        background-color: rgba(216, 232, 223, 0.85);
+        color: #395c47;
+        font-size: 13px;
+        font-weight: 400;
+        white-space: nowrap;
+      }
+
+      /* Muted Gray Missing Badge */
+      .status-badge-missing {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 6px;
+        background-color: rgba(223, 228, 236, 0.88);
+        color: #555d6b;
+        font-size: 13px;
+        font-weight: 400;
+        white-space: nowrap;
+      }
+
+      /* 2-Column Document Metadata Grid */
+      .doc-fields-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        row-gap: 14px;
+        column-gap: 14px;
+        margin-bottom: 20px;
+      }
+
+      .doc-field {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        min-width: 0;
+      }
+
+      .doc-field-label {
+        font-size: 12px;
+        font-weight: 400;
+        color: #848c99;
+        line-height: 1.25;
+        margin-bottom: 3px;
+      }
+
+      .doc-field-value-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .doc-field-value {
+        font-size: 15px;
+        font-weight: 400;
+        color: #222731;
+        line-height: 1.3;
+        letter-spacing: 0.2px;
+      }
+
+      .doc-copy-btn {
+        background: none;
+        border: none;
+        padding: 2px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: #8a92a0;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .doc-copy-btn:active {
+        opacity: 0.55;
+      }
+
+      /* Side-by-side Document Action Buttons */
+      .doc-actions-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .doc-btn-solid {
+        height: 43px;
+        min-height: 43px;
+        max-height: 43px;
+        border-radius: 999px;
+        border: none;
+        background-color: #0054a6;
+        color: #ffffff;
+        font-size: 14px;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 12px;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0, 84, 166, 0.16);
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .doc-btn-solid:active {
+        background-color: #004387;
+        transform: scale(0.985);
+      }
+
+      .doc-btn-outline {
+        height: 43px;
+        min-height: 43px;
+        max-height: 43px;
+        border-radius: 999px;
+        border: 1px solid #9ba4b3;
+        background: rgba(255, 255, 255, 0.34);
+        color: #282e39;
+        font-size: 14px;
+        font-weight: 400;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 12px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .doc-btn-outline:active {
+        background: rgba(235, 240, 248, 0.85);
+        transform: scale(0.985);
+      }
+
+      .doc-btn-icon {
+        width: 17px;
+        height: 17px;
+        flex-shrink: 0;
+      }
+
+      .license-desc {
+        margin: 0 0 18px;
+        font-size: 15px;
+        font-weight: 400;
+        line-height: 1.45;
+        color: #495160;
+      }
+
+      /* ============================
+         BOTTOM SHEETS: KUVAN PILTI & KUVAN QR-KOODI
+         ============================ */
+      .sheet-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(18, 23, 32, 0.48);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+        z-index: 350;
+      }
+
+      .sheet-backdrop.is-open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .action-bottom-sheet {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(244, 246, 250, 0.97);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border-top: 1px solid rgba(205, 218, 238, 0.9);
+        border-radius: 26px 26px 0 0;
+        padding: 18px 20px calc(env(safe-area-inset-bottom, 16px) + 22px);
+        box-shadow: 0 -8px 30px rgba(10, 22, 44, 0.22);
+        z-index: 360;
+        transform: translateY(100%);
+        transition: transform 0.36s cubic-bezier(0.28, 0.84, 0.42, 1);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .action-bottom-sheet.is-open {
+        transform: translateY(0);
+      }
+
+      .bottom-sheet-header {
+        position: relative;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 16px;
+      }
+
+      .bottom-sheet-title {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 400;
+        color: #1f242d;
+      }
+
+      .bottom-sheet-close {
+        position: absolute;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        border: 1px solid #c5cfde;
+        background: rgba(255, 255, 255, 0.65);
+        color: #2c3545;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .bottom-sheet-close:active {
+        background: rgba(226, 233, 244, 0.9);
+      }
+
+      /* Shared Loading State */
+      .sheet-loading-box {
+        min-height: 320px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 24px 18px;
+        gap: 18px;
+      }
+
+      .sheet-spinner {
+        width: 42px;
+        height: 42px;
+        border: 3.5px solid rgba(0, 84, 166, 0.16);
+        border-top-color: #0054a6;
+        border-radius: 50%;
+        animation: eestiSpin 0.8s linear infinite;
+      }
+
+      .sheet-loading-text {
+        margin: 0;
+        max-width: 265px;
+        font-size: 15px;
+        font-weight: 400;
+        line-height: 1.45;
+        color: #4b5464;
+      }
+
+      /* QR Error State */
+      .qr-error-box {
+        min-height: 310px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 24px 18px 34px;
+        gap: 18px;
+      }
+
+      .qr-error-illustration {
+        width: 114px;
+        height: 114px;
+        object-fit: contain;
+        display: block;
+      }
+
+      .qr-error-text {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 400;
+        line-height: 1.4;
+        color: #262c37;
+      }
+
+      /* Loaded User Portrait State */
+      .photo-loaded-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .user-photo-frame {
+        width: 100%;
+        max-width: 330px;
+        aspect-ratio: 3 / 3.7;
+        border-radius: 14px;
+        overflow: hidden;
+        background-color: #e6e9ef;
+        box-shadow: 0 2px 12px rgba(18, 32, 56, 0.06);
+      }
+
+      .user-photo-frame img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      /* Copy toast */
+      .copy-toast {
+        position: fixed;
+        bottom: 114px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(27, 34, 48, 0.92);
+        color: #ffffff;
+        font-size: 13px;
+        padding: 8px 16px;
+        border-radius: 999px;
+        z-index: 400;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+
+      .copy-toast.show {
+        opacity: 1;
+      }
+
+      /* ============================
+         TOP-ALIGNED EXPANDED BARCODE MODAL
+         ============================ */
+      .barcode-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(22, 28, 38, 0.42);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding: calc(max(env(safe-area-inset-top, 0px), 18px) + 12px) 16px 20px;
+        z-index: 300;
+      }
+
+      .barcode-modal-card {
+        position: relative;
+        width: 100%;
+        max-width: 420px;
+        border-radius: 28px;
+        padding: 20px 18px 18px;
+        text-align: center;
+        isolation: isolate;
+      }
+
+      .barcode-modal-inner-box {
+        border: 1px solid rgba(196, 212, 234, 0.85);
+        border-radius: 12px;
+        background: rgba(251, 252, 255, 0.9);
+        padding: 18px 16px 14px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .barcode-modal-svg {
+        width: 100%;
+        max-width: 215px;
+        height: 34px;
+        display: block;
+      }
+
+      .barcode-modal-number {
+        margin-top: 8px;
+        font-size: 14.5px;
+        font-weight: 400;
+        letter-spacing: 1.2px;
+        color: #4b5362;
+      }
+
+      .barcode-modal-close-text {
+        margin-top: 16px;
+        background: none;
+        border: none;
+        padding: 6px 18px;
+        font-size: 16px;
+        font-weight: 500;
+        color: #0054a6;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .barcode-modal-close-text:active {
+        opacity: 0.65;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- SCREEN 1: Splash Screen -->
+    <main id="splash-view" class="splash-screen">
+      <img
+        src="images/national_emblem_with_app_name.png"
+        alt="Eesti äpp riigivapp"
+        class="splash-logo"
+      />
+    </main>
+
+    <!-- SCREEN 2: PIN Screen -->
+    <main id="pin-view" class="splash-screen pin-screen sheet-view hidden">
+      <img
+        class="splash-icon"
+        src="images/national_emblem.svg"
+        alt="Eesti riigivapp"
+      />
+      <p class="pin-text">Sisesta PIN-kood</p>
+
+      <div class="pin-indicator">
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+      </div>
+
+      <div class="pin-keypad">
+        <button type="button" class="pin-key" data-digit="1">1</button>
+        <button type="button" class="pin-key" data-digit="2">2</button>
+        <button type="button" class="pin-key" data-digit="3">3</button>
+        <button type="button" class="pin-key" data-digit="4">4</button>
+        <button type="button" class="pin-key" data-digit="5">5</button>
+        <button type="button" class="pin-key" data-digit="6">6</button>
+        <button type="button" class="pin-key" data-digit="7">7</button>
+        <button type="button" class="pin-key" data-digit="8">8</button>
+        <button type="button" class="pin-key" data-digit="9">9</button>
+        <div class="pin-key-empty"></div>
+        <button type="button" class="pin-key" data-digit="0">0</button>
+        <button
+          type="button"
+          class="pin-key"
+          id="backspace-btn"
+          aria-label="Kustuta"
+        >
+          <svg
+            class="backspace-icon"
+            viewBox="0 0 26 20"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M8.2 1.5H22.5C23.8807 1.5 25 2.61929 25 4V16C25 17.3807 23.8807 18.5 22.5 18.5H8.2C7.43 18.5 6.7 18.14 6.23 17.53L1.35 11.22C0.73 10.42 0.73 9.3 1.35 8.5L6.23 2.47C6.7 1.86 7.43 1.5 8.2 1.5Z"
+              fill="#FFFFFF"
+            />
+            <path
+              d="M12.5 7L17.5 13M17.5 7L12.5 13"
+              stroke="#052d55"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <div class="pin-footer">
+        <a href="javascript:void(0)" class="pin-link other-auth">
+          <span>Muud autentimisviisid</span>
+          <svg
+            class="link-icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M6.5 3H3.5C2.94772 3 2.5 3.44772 2.5 4V12.5C2.5 13.0523 2.94772 13.5 3.5 13.5H12C12.5523 13.5 13 13.0523 13 12.5V9.5M9.5 2.5H13.5M13.5 2.5V6.5M13.5 2.5L7.5 8.5"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </a>
+
+        <p class="pin-link fake-logout">
+          <span>Login välja</span>
+          <svg
+            class="link-icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M6.5 2.5H3.5C2.94772 2.5 2.5 2.94772 2.5 3.5V12.5C2.5 13.0523 2.94772 13.5 3.5 13.5H6.5M10.5 11L13.5 8M13.5 8L10.5 5M13.5 8H6"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </p>
+      </div>
+
+      <!-- Loading Spinner Overlay after PIN entry -->
+      <div id="pin-loading" class="pin-loading-overlay hidden">
+        <div class="pin-spinner" aria-label="Laadimine"></div>
+      </div>
+    </main>
+
+    <!-- SCREEN 3: Töölaud (Dashboard) -->
+    <main id="dashboard-view" class="dashboard-screen hidden">
+      <!-- White Top Bar -->
+      <div class="dashboard-top-bar" aria-hidden="true"></div>
+
+      <div class="dashboard-scroll">
+        <!-- Search Bar (exact same size as Dokumendi andmed) -->
+        <label class="search-bar" aria-label="Otsin">
+          <input type="search" placeholder="Otsin" />
+          <svg
+            class="search-icon"
+            viewBox="0 0 20 20"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle
+              cx="9"
+              cy="9"
+              r="5.8"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
+            <path
+              d="M13.3 13.3L17 17"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+          </svg>
+        </label>
+
+        <!-- Card 1: Name, Isikukood & Code 128 Barcode -->
+        <section class="dash-card identity-card squircle-card">
+          <h1 class="user-fullname">PATRIK SEBASTIAN KARILAID</h1>
+
+          <button
+            type="button"
+            class="id-code-row"
+            data-copy="50808280082"
+            data-copy-label="Isikukood kopeeritud"
+            aria-label="Kopeeri isikukood 50808280082"
+          >
+            <span>50808280082</span>
+            <svg
+              class="copy-icon"
+              viewBox="0 0 20 20"
+              fill="none"
+              aria-hidden="true"
+            >
+              <rect
+                x="4"
+                y="6"
+                width="9"
+                height="11"
+                rx="1.2"
+                stroke="currentColor"
+                stroke-width="1.4"
+              />
+              <path
+                d="M7 6V4.2C7 3.53726 7.53726 3 8.2 3H14.8C15.4627 3 16 3.53726 16 4.2V12.8C16 13.4627 15.4627 14 14.8 14H13"
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+
+          <div class="barcode-box">
+            <button
+              type="button"
+              class="barcode-expand-btn"
+              id="expand-barcode-btn"
+              aria-label="Suurenda triipkoodi"
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M9.5 2.5H13.5V6.5M13.5 2.5L9 7M6.5 13.5H2.5V9.5M2.5 13.5L7 9"
+                  stroke="currentColor"
+                  stroke-width="1.45"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+
+            <!-- Exact Code 128 Barcode encoding 50808280082 -->
+            <svg
+              id="barcode-svg"
+              class="barcode-svg"
+              viewBox="0 0 119 28"
+              preserveAspectRatio="none"
+              role="img"
+              aria-label="Triipkood 50808280082"
+            ></svg>
+
+            <div class="barcode-number">50808280082</div>
+          </div>
+        </section>
+
+        <!-- Card 2: Dokumendi andmed -->
+        <section class="dash-card docs-card squircle-card">
+          <h2 class="docs-title">Dokumendi andmed</h2>
+          <p class="docs-desc">
+            Vajuta nupule, et näha sinuga seotud dokumente nagu ID kaart, pass
+            ja juhiluba.
+          </p>
+          <button
+            type="button"
+            class="primary-pill-btn"
+            id="open-documents-btn"
+          >
+            <span>Kuvan dokumendi andmed</span>
+          </button>
+        </section>
+
+        <!-- Standalone QR Scan Button -->
+        <button type="button" class="primary-pill-btn">
+          <span>Skaneerin isikutuvastuse QR-koodi</span>
+          <svg
+            class="qr-btn-icon"
+            viewBox="0 0 20 20"
+            fill="none"
+            aria-hidden="true"
+          >
+            <rect
+              x="2.5"
+              y="2.5"
+              width="6"
+              height="6"
+              rx="0.6"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
+            <rect
+              x="4.7"
+              y="4.7"
+              width="1.6"
+              height="1.6"
+              fill="currentColor"
+            />
+            <rect
+              x="11.5"
+              y="2.5"
+              width="6"
+              height="6"
+              rx="0.6"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
+            <rect
+              x="13.7"
+              y="4.7"
+              width="1.6"
+              height="1.6"
+              fill="currentColor"
+            />
+            <rect
+              x="2.5"
+              y="11.5"
+              width="6"
+              height="6"
+              rx="0.6"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
+            <rect
+              x="4.7"
+              y="13.7"
+              width="1.6"
+              height="1.6"
+              fill="currentColor"
+            />
+            <path
+              d="M11.5 11.5H13.8V13.8H11.5V11.5ZM15.2 11.5H17.5V13.8H15.2V11.5ZM11.5 15.2H13.8V17.5H11.5V15.2ZM15.2 15.2H17.5V17.5H15.2V15.2Z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+
+        <!-- Card 3: Jätan oma arvamuse (5 Mood Faces) -->
+        <section class="dash-card feedback-card squircle-card">
+          <h2 class="feedback-title">Jätan oma arvamuse</h2>
+          <div class="faces-row" role="radiogroup" aria-label="Hinnang">
+            <button
+              type="button"
+              class="face-btn"
+              data-face="1"
+              aria-label="Väga rahulolematu"
+            >
+              <img src="images/1_deselected.svg" alt="" />
+            </button>
+            <button
+              type="button"
+              class="face-btn"
+              data-face="2"
+              aria-label="Rahulolematu"
+            >
+              <img src="images/2_deselected.svg" alt="" />
+            </button>
+            <button
+              type="button"
+              class="face-btn"
+              data-face="3"
+              aria-label="Neutraalne"
+            >
+              <img src="images/3_deselected.svg" alt="" />
+            </button>
+            <button
+              type="button"
+              class="face-btn"
+              data-face="4"
+              aria-label="Rahul"
+            >
+              <img src="images/4_deselected.svg" alt="" />
+            </button>
+            <button
+              type="button"
+              class="face-btn"
+              data-face="5"
+              aria-label="Väga rahul"
+            >
+              <img src="images/5_deselected.svg" alt="" />
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Frosted Glass Bottom Navigation Bar -->
+      <nav id="bottom-navbar" class="bottom-navbar" aria-label="Peamenüü">
+        <div
+          id="navbar-glass-bg"
+          class="navbar-glass-bg"
+          aria-hidden="true"
+        ></div>
+
+        <svg id="navbar-rim-svg" class="navbar-rim-svg" aria-hidden="true">
+          <path
+            id="navbar-rim-path"
+            fill="none"
+            stroke="rgba(196, 214, 238, 0.85)"
+            stroke-width="1.25"
+          />
+        </svg>
+
+        <!-- 1. Rollid -->
+        <button type="button" class="nav-item">
+          <span class="nav-icon-slot">
+            <span class="nav-initials">PK</span>
+          </span>
+          <span class="nav-label">Rollid</span>
+        </button>
+
+        <!-- 2. Teenused -->
+        <button type="button" class="nav-item">
+          <span class="nav-icon-slot">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <rect x="2.5" y="4" width="3.2" height="3.2" fill="#1d2432" />
+              <rect x="7.5" y="4" width="10" height="3.2" fill="#1d2432" />
+              <rect x="2.5" y="8.8" width="3.2" height="3.2" fill="#1d2432" />
+              <rect x="7.5" y="8.8" width="10" height="3.2" fill="#1d2432" />
+              <rect x="2.5" y="13.6" width="3.2" height="3.2" fill="#1d2432" />
+              <rect x="7.5" y="13.6" width="10" height="3.2" fill="#1d2432" />
+            </svg>
+          </span>
+          <span class="nav-label">Teenused</span>
+        </button>
+
+        <!-- 3. Töölaud (Center Blue Circle) -->
+        <div class="nav-center-wrap">
+          <button type="button" class="nav-center-btn" aria-current="page">
+            <img
+              src="images/national_emblem.svg"
+              alt=""
+              class="nav-center-emblem"
+            />
+            <span class="nav-center-label">Töölaud</span>
+          </button>
+        </div>
+
+        <!-- 4. Postkast -->
+        <button type="button" class="nav-item">
+          <span class="nav-icon-slot">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <rect
+                x="2"
+                y="4.5"
+                width="16"
+                height="11.5"
+                rx="1.4"
+                fill="#1d2432"
+              />
+              <path
+                d="M2.6 5.3L10 10.7L17.4 5.3"
+                stroke="#ffffff"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
+          <span class="nav-label">Postkast</span>
+        </button>
+
+        <!-- 5. Seaded -->
+        <button type="button" class="nav-item">
+          <span class="nav-icon-slot">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+              <path
+                fill-rule="evenodd"
+                clip-rule="evenodd"
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM12 15a3 3 0 100-6 3 3 0 000 6z"
+                fill="#1d2432"
+              />
+            </svg>
+          </span>
+          <span class="nav-label">Seaded</span>
+        </button>
+      </nav>
+    </main>
+
+    <!-- SCREEN 4: Dokumendi andmed (Slides in from right) -->
+    <section
+      id="documents-view"
+      class="documents-screen"
+      aria-label="Dokumendi andmed"
+    >
+      <!-- White Top Bar -->
+      <div class="dashboard-top-bar" aria-hidden="true"></div>
+
+      <!-- Sticky Top Back Chevron + Search Bar -->
+      <div class="docs-header-bar">
+        <button
+          type="button"
+          class="back-chevron-btn"
+          id="close-documents-btn"
+          aria-label="Tagasi"
+        >
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <path
+              d="M14 5L8 11L14 17"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+
+        <label class="search-bar" aria-label="Otsin">
+          <input type="search" placeholder="Otsin" />
+          <svg
+            class="search-icon"
+            viewBox="0 0 20 20"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle
+              cx="9"
+              cy="9"
+              r="5.8"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
+            <path
+              d="M13.3 13.3L17 17"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+          </svg>
+        </label>
+      </div>
+
+      <!-- Scrollable Document Cards -->
+      <div class="docs-scroll" id="docs-scroll-container">
+        <!-- Card 1: Pass -->
+        <article class="dash-card doc-item-card squircle-card">
+          <div class="doc-card-header">
+            <h2 class="doc-card-title">Pass</h2>
+            <span class="status-badge-valid">Kehtib 06.01.2030</span>
+          </div>
+
+          <div class="doc-fields-grid">
+            <div class="doc-field">
+              <span class="doc-field-label">Eesnimi</span>
+              <span class="doc-field-value">PATRIK SEBASTIAN</span>
+            </div>
+
+            <div class="doc-field">
+              <span class="doc-field-label">Sünniaeg</span>
+              <span class="doc-field-value">28.08.2008</span>
+            </div>
+
+            <div class="doc-field">
+              <span class="doc-field-label">Perekonnanimi</span>
+              <span class="doc-field-value">KARILAID</span>
+            </div>
+
+            <div class="doc-field">
+              <span class="doc-field-label">Isikukood</span>
+              <div class="doc-field-value-row">
+                <span class="doc-field-value">50808280082</span>
+                <button
+                  type="button"
+                  class="doc-copy-btn"
+                  data-copy="50808280082"
+                  data-copy-label="Isikukood kopeeritud"
+                  aria-label="Kopeeri isikukood"
+                >
+                  <svg class="copy-icon" viewBox="0 0 20 20" fill="none">
+                    <rect
+                      x="4"
+                      y="6"
+                      width="9"
+                      height="11"
+                      rx="1.2"
+                      stroke="currentColor"
+                      stroke-width="1.4"
+                    />
+                    <path
+                      d="M7 6V4.2C7 3.53726 7.53726 3 8.2 3H14.8C15.4627 3 16 3.53726 16 4.2V12.8C16 13.4627 15.4627 14 14.8 14H13"
+                      stroke="currentColor"
+                      stroke-width="1.4"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="doc-field">
+              <span class="doc-field-label">Dokumendi number</span>
+              <div class="doc-field-value-row">
+                <span class="doc-field-value">KF0413135</span>
+                <button
+                  type="button"
+                  class="doc-copy-btn"
+                  data-copy="KF0413135"
+                  data-copy-label="Dokumendi number kopeeritud"
+                  aria-label="Kopeeri dokumendi number"
+                >
+                  <svg class="copy-icon" viewBox="0 0 20 20" fill="none">
+                    <rect
+                      x="4"
+                      y="6"
+                      width="9"
+                      height="11"
+                      rx="1.2"
+                      stroke="currentColor"
+                      stroke-width="1.4"
+                    />
+                    <path
+                      d="M7 6V4.2C7 3.53726 7.53726 3 8.2 3H14.8C15.4627 3 16 3.53726 16 4.2V12.8C16 13.4627 15.4627 14 14.8 14H13"
+                      stroke="currentColor"
+                      stroke-width="1.4"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="doc-field">
+              <span class="doc-field-label">Sugu</span>
+              <span class="doc-field-value">Mees</span>
+            </div>
+          </div>
+
+          <div class="doc-actions-row">
+            <button type="button" class="doc-btn-solid open-photo-btn">
+              <span>Kuvan pildi</span>
+              <svg
+                class="doc-btn-icon"
+                viewBox="0 0 20 20"
+                fill="none"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="10"
+                  cy="7.2"
+                  r="2.7"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                />
+                <path
+                  d="M4.8 15.8C5.4 13.3 7.5 11.8 10 11.8C12.5 11.8 14.6 13.3 15.2 15.8"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
+                <line
+                  x1="4.2"
+                  y1="16.2"
+                  x2="15.8"
+                  y2="16.2"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+
+            <button type="button" class="doc-btn-outline open-qr-btn">
+              <span>Kuvan QR-koodi</span>
+              <svg
+                class="doc-btn-icon"
+                viewBox="0 0 20 20"
+                fill="none"
+                aria-hidden="true"
+              >
+                <rect
+                  x="2.5"
+                  y="2.5"
+                  width="6"
+                  height="6"
+                  rx="0.6"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                />
+                <rect
+                  x="4.7"
+                  y="4.7"
+                  width="1.6"
+                  height="1.6"
+                  fill="currentColor"
+                />
+                <rect
+                  x="11.5"
+                  y="2.5"
+                  width="6"
+                  height="6"
+                  rx="0.6"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                />
+                <rect
+                  x="13.7"
+                  y="4.7"
+                  width="1.6"
+                  height="1.6"
+                  fill="currentColor"
+                />
+                <rect
+                  x="2.5"
+                  y="11.5"
+                  width="6"
+                  height="6"
+                  rx="0.6"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                />
+                <rect
+                  x="4.7"
+                  y="13.7"
+                  width="1.6"
+                  height="1.6"
+                  fill="currentColor"
+                />
+                <path
+                  d="M11.5 11.5H13.8V13.8H11.5V11.5ZM15.2 11.5H17.5V13.8H15.2V11.5ZM11.5 15.2H13.8V17.5H11.5V15.2ZM15.2 15.2H17.5V17.5H15.2V15.2Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+          </div>
+        </article>
+
+        <!-- Card 2: ID-kaart -->
+        <article class="dash-card doc-item-card squircle-card">
+          <div class="doc-card-header">
+            <h2 class="doc-card-title">ID-kaart</h2>
+            <span class="status-badge-valid">Kehtib 23.12.2030</span>
+          </div>
+
+          <div class="doc-fields-grid">
+            <div class="doc-field">
+              <span class="doc-field-label">Eesnimi</span>
+              <span class="doc-field-value">PATRIK SEBASTIAN</span>
+            </div>
+
+            <div class="doc-field">
+              <span class="doc-field-label">Sünniaeg</span>
+              <span class="doc-field-value">28.08.2008</span>
+            </div>
+
+            <div class="doc-field">
+              <span class="doc-field-label">Perekonnanimi</span>
+              <span class="doc-field-value">KARILAID</span>
+            </div>
+
+            <div class="doc-field">
+              <span class="doc-field-label">Isikukood</span>
+              <div class="doc-field-value-row">
+                <span class="doc-field-value">50808280082</span>
+                <button
+                  type="button"
+                  class="doc-copy-btn"
+                  data-copy="50808280082"
+                  data-copy-label="Isikukood kopeeritud"
+                  aria-label="Kopeeri isikukood"
+                >
+                  <svg class="copy-icon" viewBox="0 0 20 20" fill="none">
+                    <rect
+                      x="4"
+                      y="6"
+                      width="9"
+                      height="11"
+                      rx="1.2"
+                      stroke="currentColor"
+                      stroke-width="1.4"
+                    />
+                    <path
+                      d="M7 6V4.2C7 3.53726 7.53726 3 8.2 3H14.8C15.4627 3 16 3.53726 16 4.2V12.8C16 13.4627 15.4627 14 14.8 14H13"
+                      stroke="currentColor"
+                      stroke-width="1.4"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="doc-field">
+              <span class="doc-field-label">Dokumendi number</span>
+              <div class="doc-field-value-row">
+                <span class="doc-field-value">AD0016503</span>
+                <button
+                  type="button"
+                  class="doc-copy-btn"
+                  data-copy="AD0016503"
+                  data-copy-label="Dokumendi number kopeeritud"
+                  aria-label="Kopeeri dokumendi number"
+                >
+                  <svg class="copy-icon" viewBox="0 0 20 20" fill="none">
+                    <rect
+                      x="4"
+                      y="6"
+                      width="9"
+                      height="11"
+                      rx="1.2"
+                      stroke="currentColor"
+                      stroke-width="1.4"
+                    />
+                    <path
+                      d="M7 6V4.2C7 3.53726 7.53726 3 8.2 3H14.8C15.4627 3 16 3.53726 16 4.2V12.8C16 13.4627 15.4627 14 14.8 14H13"
+                      stroke="currentColor"
+                      stroke-width="1.4"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="doc-field">
+              <span class="doc-field-label">Sugu</span>
+              <span class="doc-field-value">Mees</span>
+            </div>
+          </div>
+
+          <div class="doc-actions-row">
+            <button type="button" class="doc-btn-solid open-photo-btn">
+              <span>Kuvan pildi</span>
+              <svg
+                class="doc-btn-icon"
+                viewBox="0 0 20 20"
+                fill="none"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="10"
+                  cy="7.2"
+                  r="2.7"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                />
+                <path
+                  d="M4.8 15.8C5.4 13.3 7.5 11.8 10 11.8C12.5 11.8 14.6 13.3 15.2 15.8"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
+                <line
+                  x1="4.2"
+                  y1="16.2"
+                  x2="15.8"
+                  y2="16.2"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+
+            <button type="button" class="doc-btn-outline open-qr-btn">
+              <span>Kuvan QR-koodi</span>
+              <svg
+                class="doc-btn-icon"
+                viewBox="0 0 20 20"
+                fill="none"
+                aria-hidden="true"
+              >
+                <rect
+                  x="2.5"
+                  y="2.5"
+                  width="6"
+                  height="6"
+                  rx="0.6"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                />
+                <rect
+                  x="4.7"
+                  y="4.7"
+                  width="1.6"
+                  height="1.6"
+                  fill="currentColor"
+                />
+                <rect
+                  x="11.5"
+                  y="2.5"
+                  width="6"
+                  height="6"
+                  rx="0.6"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                />
+                <rect
+                  x="13.7"
+                  y="4.7"
+                  width="1.6"
+                  height="1.6"
+                  fill="currentColor"
+                />
+                <rect
+                  x="2.5"
+                  y="11.5"
+                  width="6"
+                  height="6"
+                  rx="0.6"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                />
+                <rect
+                  x="4.7"
+                  y="13.7"
+                  width="1.6"
+                  height="1.6"
+                  fill="currentColor"
+                />
+                <path
+                  d="M11.5 11.5H13.8V13.8H11.5V11.5ZM15.2 11.5H17.5V13.8H15.2V11.5ZM11.5 15.2H13.8V17.5H11.5V15.2ZM15.2 15.2H17.5V17.5H15.2V15.2Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+          </div>
+        </article>
+
+        <!-- Card 3: Juhiluba -->
+        <article class="dash-card doc-item-card squircle-card">
+          <div class="doc-card-header">
+            <h2 class="doc-card-title">Juhiluba</h2>
+            <span class="status-badge-missing">Puudub</span>
+          </div>
+
+          <p class="license-desc">
+            Juhiloa taotlemiseks vajalikud tegevused leiad Maanteeameti lehelt
+          </p>
+
+          <button type="button" class="primary-pill-btn">
+            <span>Vaatan</span>
+          </button>
+        </article>
+      </div>
+    </section>
+
+    <!-- BOTTOM SHEET 1: Kuvan pilti ("Pilt") -->
+    <div
+      id="photo-sheet-backdrop"
+      class="sheet-backdrop"
+      aria-hidden="true"
+    ></div>
+
+    <div
+      id="photo-bottom-sheet"
+      class="action-bottom-sheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="photo-sheet-title"
+    >
+      <div class="bottom-sheet-header">
+        <h3 id="photo-sheet-title" class="bottom-sheet-title">Pilt</h3>
+        <button
+          type="button"
+          class="bottom-sheet-close"
+          id="close-photo-sheet-btn"
+          aria-label="Sulge"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path
+              d="M3 3L11 11M11 3L3 11"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Loading State (5 to 10 seconds random delay) -->
+      <div id="photo-loading-box" class="sheet-loading-box">
+        <div class="sheet-spinner" aria-hidden="true"></div>
+        <p class="sheet-loading-text">
+          Pildi laadimine võib võtta kuni 20 sekundit, palun oota
+        </p>
+      </div>
+
+      <!-- Loaded State -->
+      <div id="photo-loaded-box" class="photo-loaded-box hidden">
+        <div class="user-photo-frame">
+          <img src="images/userpic.png" alt="Dokumendi foto" />
+        </div>
+        <a
+          href="images/userpic.png"
+          download="dokumendi_pilt.png"
+          class="primary-pill-btn"
+          style="text-decoration: none"
+        >
+          <span>Laadin alla</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- BOTTOM SHEET 2: Kuvan QR-koodi ("QR-kood") -->
+    <div id="qr-sheet-backdrop" class="sheet-backdrop" aria-hidden="true"></div>
+
+    <div
+      id="qr-bottom-sheet"
+      class="action-bottom-sheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="qr-sheet-title"
+    >
+      <div class="bottom-sheet-header">
+        <h3 id="qr-sheet-title" class="bottom-sheet-title">QR-kood</h3>
+        <button
+          type="button"
+          class="bottom-sheet-close"
+          id="close-qr-sheet-btn"
+          aria-label="Sulge"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path
+              d="M3 3L11 11M11 3L3 11"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Loading State (5 to 10 seconds random delay) -->
+      <div id="qr-loading-box" class="sheet-loading-box">
+        <div class="sheet-spinner" aria-hidden="true"></div>
+        <p class="sheet-loading-text">
+          QR-koodi laadimine võib võtta kuni 15 sekundit, palun oota
+        </p>
+      </div>
+
+      <!-- Service Overloaded Error State -->
+      <div id="qr-error-box" class="qr-error-box hidden">
+        <img
+          src="images/service_overloaded.svg"
+          alt=""
+          class="qr-error-illustration"
+        />
+        <p class="qr-error-text">QR-koodi saamine ebaõnnestus</p>
+      </div>
+    </div>
+
+    <!-- Copy Toast -->
+    <div id="copy-toast" class="copy-toast">Isikukood kopeeritud</div>
+
+    <!-- Top-Aligned Expanded Barcode Modal -->
+    <div id="barcode-modal" class="barcode-modal hidden">
+      <div class="barcode-modal-card squircle-card">
+        <div class="barcode-modal-inner-box">
+          <svg
+            id="barcode-modal-svg"
+            class="barcode-modal-svg"
+            viewBox="0 0 119 34"
+            preserveAspectRatio="none"
+            role="img"
+            aria-label="Triipkood 50808280082"
+          ></svg>
+          <div class="barcode-modal-number">50808280082</div>
+        </div>
+        <button
+          type="button"
+          class="barcode-modal-close-text"
+          id="close-barcode-modal"
+        >
+          Sulgen
+        </button>
+      </div>
+    </div>
+
+    <script>
+      const splashView = document.getElementById("splash-view");
+      const pinView = document.getElementById("pin-view");
+      const pinLoading = document.getElementById("pin-loading");
+      const dashboardView = document.getElementById("dashboard-view");
+      const documentsView = document.getElementById("documents-view");
+
+      // 1. Splash Screen -> PIN Screen after 0.5s - 1.5s
+      const randomDelay = Math.floor(Math.random() * 1001) + 500;
+      setTimeout(() => {
+        pinView.classList.remove("hidden");
+        pinView.classList.add("sheet-open");
+      }, randomDelay);
+
+      // 2. PIN keypad logic -> short loading delay -> Dashboard
+      const PIN_LENGTH = 6;
+      let enteredPin = "";
+      let isSubmitting = false;
+
+      const dots = document.querySelectorAll(".pin-dot");
+      const digitButtons = document.querySelectorAll(".pin-key[data-digit]");
+      const backspaceBtn = document.getElementById("backspace-btn");
+      const logoutBtn = document.querySelector(".fake-logout");
+
+      function updateDots() {
+        dots.forEach((dot, idx) => {
+          dot.classList.toggle("filled", idx < enteredPin.length);
+        });
+      }
+
+      function handleDigit(digit) {
+        if (isSubmitting || enteredPin.length >= PIN_LENGTH) return;
+        enteredPin += digit;
+        updateDots();
+
+        if (enteredPin.length === PIN_LENGTH) {
+          isSubmitting = true;
+          setTimeout(() => {
+            pinLoading.classList.remove("hidden");
+
+            setTimeout(() => {
+              pinLoading.classList.add("hidden");
+              pinView.classList.remove("sheet-open");
+              pinView.classList.add("hidden");
+              splashView.classList.add("hidden");
+              dashboardView.classList.remove("hidden");
+              updateNavbarCurve();
+              updateAllSquircles();
+
+              enteredPin = "";
+              isSubmitting = false;
+              updateDots();
+            }, 750);
+          }, 150);
+        }
+      }
+
+      function handleBackspace() {
+        if (isSubmitting || enteredPin.length === 0) return;
+        enteredPin = enteredPin.slice(0, -1);
+        updateDots();
+      }
+
+      digitButtons.forEach((btn) => {
+        btn.addEventListener("click", () => handleDigit(btn.dataset.digit));
+      });
+
+      backspaceBtn.addEventListener("click", handleBackspace);
+
+      if (logoutBtn) {
+        logoutBtn.addEventListener("click", () => {
+          if (isSubmitting) return;
+          enteredPin = "";
+          updateDots();
+        });
+      }
+
+      // 3. True iOS-style G2 continuous corner (squircle) generator with frosted glass fill
+      function buildSquirclePath(w, h) {
+        const d = Math.min(38, w / 2, h / 2);
+        const k = d * 0.34;
+        return [
+          `M ${d} 0`,
+          `L ${w - d} 0`,
+          `C ${w - k} 0, ${w} ${k}, ${w} ${d}`,
+          `L ${w} ${h - d}`,
+          `C ${w} ${h - k}, ${w - k} ${h}, ${w - d} ${h}`,
+          `L ${d} ${h}`,
+          `C ${k} ${h}, 0 ${h - k}, 0 ${h - d}`,
+          `L 0 ${d}`,
+          `C 0 ${k}, ${k} 0, ${d} 0`,
+          `Z`,
+        ].join(" ");
+      }
+
+      function updateSquircleCard(card) {
+        const w = card.offsetWidth;
+        const h = card.offsetHeight;
+        if (!w || !h) return;
+
+        const pathData = buildSquirclePath(w, h);
+
+        let frostedFill = card.querySelector(":scope > .squircle-frosted-fill");
+        if (!frostedFill) {
+          frostedFill = document.createElement("div");
+          frostedFill.className = "squircle-frosted-fill";
+          frostedFill.setAttribute("aria-hidden", "true");
+          card.prepend(frostedFill);
+        }
+        frostedFill.style.clipPath = `path("${pathData}")`;
+        frostedFill.style.webkitClipPath = `path("${pathData}")`;
+
+        let svg = card.querySelector(":scope > .squircle-bg-svg");
+        if (!svg) {
+          svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          svg.setAttribute("class", "squircle-bg-svg");
+          svg.setAttribute("aria-hidden", "true");
+          const path = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "path"
+          );
+          path.setAttribute("fill", "none");
+          path.setAttribute("stroke", "rgba(214, 224, 240, 0.85)");
+          path.setAttribute("stroke-width", "1.4");
+          svg.appendChild(path);
+          card.prepend(svg);
+        }
+
+        const path = svg.querySelector("path");
+        svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+        path.setAttribute("d", pathData);
+      }
+
+      const squircleCards = document.querySelectorAll(".squircle-card");
+      function updateAllSquircles() {
+        squircleCards.forEach(updateSquircleCard);
+      }
+
+      if (typeof ResizeObserver !== "undefined") {
+        const ro = new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            updateSquircleCard(entry.target);
+          }
+        });
+        squircleCards.forEach((card) => ro.observe(card));
+      }
+      updateAllSquircles();
+      window.addEventListener("resize", updateAllSquircles);
+
+      // 4. Balanced medium-wide frosted glass arch around center Töölaud button
+      function updateNavbarCurve() {
+        const nav = document.getElementById("bottom-navbar");
+        const glassBg = document.getElementById("navbar-glass-bg");
+        const rimSvg = document.getElementById("navbar-rim-svg");
+        const rimPath = document.getElementById("navbar-rim-path");
+        if (!nav || !glassBg || !rimSvg || !rimPath) return;
+
+        const w = nav.offsetWidth || window.innerWidth;
+        const h = nav.offsetHeight || 94;
+        const cx = w / 2;
+
+        const yFlat = 28;
+        const yPeak = 2;
+        const halfSpan = Math.min(92, w * 0.24);
+
+        const xStart = (cx - halfSpan).toFixed(2);
+        const xEnd = (cx + halfSpan).toFixed(2);
+        const c1x = (cx - halfSpan * 0.58).toFixed(2);
+        const c2x = (cx - halfSpan * 0.46).toFixed(2);
+        const c3x = (cx + halfSpan * 0.46).toFixed(2);
+        const c4x = (cx + halfSpan * 0.58).toFixed(2);
+
+        const topCurve = [
+          `M 0 ${yFlat}`,
+          `L ${xStart} ${yFlat}`,
+          `C ${c1x} ${yFlat}, ${c2x} ${yPeak}, ${cx.toFixed(2)} ${yPeak}`,
+          `C ${c3x} ${yPeak}, ${c4x} ${yFlat}, ${xEnd} ${yFlat}`,
+          `L ${w} ${yFlat}`,
+        ].join(" ");
+
+        const closedShape = `${topCurve} L ${w} ${h} L 0 ${h} Z`;
+
+        glassBg.style.clipPath = `path("${closedShape}")`;
+        glassBg.style.webkitClipPath = `path("${closedShape}")`;
+
+        rimSvg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+        rimPath.setAttribute("d", topCurve);
+      }
+
+      updateNavbarCurve();
+      window.addEventListener("resize", updateNavbarCurve);
+
+      // 5. Render valid, scannable Code 128 barcode for 50808280082
+      // Start C (105) + 50 + 80 + 82 + 80 + 08 + Code B (100) + '2' (18) + Checksum 81 + Stop
+      function renderCode128Barcode(svgEl, barHeight) {
+        const patterns = [
+          "211232", // Start C (105)
+          "231131", // 50
+          "111242", // 80
+          "121241", // 82
+          "111242", // 80
+          "112232", // 08
+          "114131", // Code B (100)
+          "223211", // '2' (18)
+          "311141", // Checksum 81
+          "2331112", // Stop
+        ];
+
+        let x = 0;
+        let rects = "";
+        for (const pattern of patterns) {
+          for (let i = 0; i < pattern.length; i++) {
+            const w = parseInt(pattern[i], 10);
+            if (i % 2 === 0) {
+              rects += `<rect x="${x}" y="0" width="${w}" height="${barHeight}" fill="#1b2230"/>`;
+            }
+            x += w;
+          }
+        }
+        svgEl.setAttribute("viewBox", `0 0 ${x} ${barHeight}`);
+        svgEl.innerHTML = rects;
+      }
+
+      const mainBarcodeSvg = document.getElementById("barcode-svg");
+      const modalBarcodeSvg = document.getElementById("barcode-modal-svg");
+      renderCode128Barcode(mainBarcodeSvg, 28);
+      renderCode128Barcode(modalBarcodeSvg, 34);
+
+      // 6. Universal Copy-to-Clipboard Handler (Isikukood & Dokumendi number)
+      const copyToast = document.getElementById("copy-toast");
+      let toastTimer;
+
+      document.querySelectorAll("[data-copy]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const textToCopy = btn.dataset.copy;
+          const label = btn.dataset.copyLabel || "Kopeeritud";
+          if (navigator.clipboard && textToCopy) {
+            navigator.clipboard.writeText(textToCopy).catch(() => {});
+          }
+          copyToast.textContent = label;
+          copyToast.classList.add("show");
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(
+            () => copyToast.classList.remove("show"),
+            1600
+          );
+        });
+      });
+
+      // 7. Top-Aligned Barcode Expand Modal
+      const expandBarcodeBtn = document.getElementById("expand-barcode-btn");
+      const barcodeModal = document.getElementById("barcode-modal");
+      const closeBarcodeModal = document.getElementById("close-barcode-modal");
+
+      expandBarcodeBtn.addEventListener("click", () => {
+        barcodeModal.classList.remove("hidden");
+        updateAllSquircles();
+      });
+
+      closeBarcodeModal.addEventListener("click", () => {
+        barcodeModal.classList.add("hidden");
+      });
+
+      barcodeModal.addEventListener("click", (e) => {
+        if (e.target === barcodeModal) {
+          barcodeModal.classList.add("hidden");
+        }
+      });
+
+      // 8. Mood Faces Selection
+      const faceButtons = document.querySelectorAll(".face-btn");
+
+      faceButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const selectedNum = btn.dataset.face;
+          faceButtons.forEach((otherBtn) => {
+            const num = otherBtn.dataset.face;
+            const img = otherBtn.querySelector("img");
+            const state = num === selectedNum ? "selected" : "deselected";
+            img.src = `images/${num}_${state}.svg`;
+          });
+        });
+      });
+
+      // 9. Slide-in "Dokumendi andmed" Screen from Right
+      const openDocumentsBtn = document.getElementById("open-documents-btn");
+      const closeDocumentsBtn = document.getElementById("close-documents-btn");
+      const docsScrollContainer = document.getElementById(
+        "docs-scroll-container"
+      );
+
+      openDocumentsBtn.addEventListener("click", () => {
+        if (docsScrollContainer) docsScrollContainer.scrollTop = 0;
+        updateAllSquircles();
+        dashboardView.classList.add("pushed-left");
+        documentsView.classList.add("is-open");
+      });
+
+      closeDocumentsBtn.addEventListener("click", () => {
+        documentsView.classList.remove("is-open");
+        dashboardView.classList.remove("pushed-left");
+      });
+
+      // 10. "Kuvan pildi" Bottom Sheet with 5-10s Random Loading State
+      const openPhotoBtns = document.querySelectorAll(".open-photo-btn");
+      const photoBackdrop = document.getElementById("photo-sheet-backdrop");
+      const photoSheet = document.getElementById("photo-bottom-sheet");
+      const closePhotoSheetBtn = document.getElementById(
+        "close-photo-sheet-btn"
+      );
+      const photoLoadingBox = document.getElementById("photo-loading-box");
+      const photoLoadedBox = document.getElementById("photo-loaded-box");
+      let photoLoadTimer = null;
+
+      function openPhotoSheet() {
+        clearTimeout(photoLoadTimer);
+        photoLoadingBox.classList.remove("hidden");
+        photoLoadedBox.classList.add("hidden");
+
+        photoBackdrop.classList.add("is-open");
+        photoSheet.classList.add("is-open");
+
+        const photoDelay = Math.floor(Math.random() * 5001) + 5000;
+        photoLoadTimer = setTimeout(() => {
+          photoLoadingBox.classList.add("hidden");
+          photoLoadedBox.classList.remove("hidden");
+        }, photoDelay);
+      }
+
+      function closePhotoSheet() {
+        clearTimeout(photoLoadTimer);
+        photoBackdrop.classList.remove("is-open");
+        photoSheet.classList.remove("is-open");
+      }
+
+      openPhotoBtns.forEach((btn) => {
+        btn.addEventListener("click", openPhotoSheet);
+      });
+
+      closePhotoSheetBtn.addEventListener("click", closePhotoSheet);
+      photoBackdrop.addEventListener("click", closePhotoSheet);
+
+      // 11. "Kuvan QR-koodi" Bottom Sheet with 5-10s Loading -> Service Overloaded Error
+      const openQrBtns = document.querySelectorAll(".open-qr-btn");
+      const qrBackdrop = document.getElementById("qr-sheet-backdrop");
+      const qrSheet = document.getElementById("qr-bottom-sheet");
+      const closeQrSheetBtn = document.getElementById("close-qr-sheet-btn");
+      const qrLoadingBox = document.getElementById("qr-loading-box");
+      const qrErrorBox = document.getElementById("qr-error-box");
+      let qrLoadTimer = null;
+
+      function openQrSheet() {
+        clearTimeout(qrLoadTimer);
+        qrLoadingBox.classList.remove("hidden");
+        qrErrorBox.classList.add("hidden");
+
+        qrBackdrop.classList.add("is-open");
+        qrSheet.classList.add("is-open");
+
+        const qrDelay = Math.floor(Math.random() * 5001) + 5000;
+        qrLoadTimer = setTimeout(() => {
+          qrLoadingBox.classList.add("hidden");
+          qrErrorBox.classList.remove("hidden");
+        }, qrDelay);
+      }
+
+      function closeQrSheet() {
+        clearTimeout(qrLoadTimer);
+        qrBackdrop.classList.remove("is-open");
+        qrSheet.classList.remove("is-open");
+      }
+
+      openQrBtns.forEach((btn) => {
+        btn.addEventListener("click", openQrSheet);
+      });
+
+      closeQrSheetBtn.addEventListener("click", closeQrSheet);
+      qrBackdrop.addEventListener("click", closeQrSheet);
+    </script>
+  </body>
+</html>
