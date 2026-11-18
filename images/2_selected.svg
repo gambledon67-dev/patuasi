@@ -1,0 +1,14 @@
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 226.77 226.77">
+  <!-- Generator: Adobe Illustrator 30.4.0, SVG Export Plug-In . SVG Version: 2.1.4 Build 226)  -->
+  <defs>
+    
+    <radialGradient id="radial-gradient" cx="113.39" cy="113.39" fx="113.39" fy="113.39" r="112.71" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe978"/>
+      <stop offset="1" stop-color="#f4c542"/>
+    </radialGradient>
+  </defs>
+  <circle class="st0" cx="113.39" cy="113.39" r="112.71" style="fill:url(#radial-gradient)"/>
+  <path class="st2" d="M64.01,102.65c7.16,10.73,14.31,10.73,21.47,0" style="fill:none; stroke-linecap:round; stroke:#231f20; stroke-width:8px"/>
+  <path class="st2" d="M141.29,102.65c7.16,10.73,14.31,10.73,21.47,0" style="fill:none; stroke-linecap:round; stroke:#231f20; stroke-width:8px"/>
+  <path class="st1" d="M85.48,167.06c18.61-14.31,37.21-14.31,55.82,0" style="stroke:#f04e30; stroke-width:10px; fill:none; stroke-linecap:round"/>
+</svg>
